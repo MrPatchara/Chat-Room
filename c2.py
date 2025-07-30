@@ -131,4 +131,7 @@ message_entry.bind('<Return>', send_message)
 send_button = ctk.CTkButton(root, text="➤ Send", command=send_message, state=ctk.DISABLED, font=font_mono, text_color="#0f0")
 send_button.pack(padx=10, pady=10)
 
+server_entry.bind("<Control-v>", lambda e: server_entry.insert("insert", e.widget.clipboard_get()))
+
+
 root.mainloop()
