@@ -135,6 +135,31 @@ def on_room_double_click(event):
         room_entry.insert(0, room_name)
         join_room(room_name)
 
+def delete_room():
+    selection = rooms_listbox.curselection()
+    if not selection:
+        chat_window.insert(tk.END, "⚠️ Please select a room to delete.\n")
+        return
+
+    room = rooms_listbox.get(selection[0])
+
+    # Popup ขอรหัส admin
+    admin_code = simpledialog.askstring("Admin Code", f"Enter admin code to delete '{room}':", show="*")
+    if not admin_code:
+        chat_window.insert(tk.END, "⚠️ Delete canceled. Admin code required.\n")
+        return
+
+    sio.emit('delete_room', {
+        'room': room,
+        'admin_code': admin_code
+    })
+
+
+# Event รับแจ้งว่าห้องถูกลบ
+@sio.on('room_deleted')
+def on_room_deleted(data):
+    chat_window.insert(tk.END, f"⚠️ {data['message']}\n")
+
 # ----------------- GUI -----------------
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
@@ -178,64 +203,88 @@ ctk.CTkButton(login_window, text="Connect", command=connect_and_open_main).pack(
 def show_main_window():
     global chat_window, send_button, message_entry, room_entry, code_entry, rooms_listbox, users_listbox, join_button
     root.deiconify()
-    root.title("☠ DarkNet Chat Room ☠")
-    root.geometry("900x600")
+    root.title("☠ The River - DarkNet Chat ☠")
+    root.geometry("1000x650")
+    root.configure(bg="#0b0b0b")  # ฉากหลังมืด
 
-    # Left main frame
-    left_frame = ctk.CTkFrame(root, fg_color="#1a1a1a", width=250)
-    left_frame.pack(side="left", fill="y", padx=5, pady=5)
+    # ----- LEFT PANEL -----
+    left_frame = ctk.CTkFrame(root, fg_color="#0b0b0b", width=260, corner_radius=10)
+    left_frame.pack(side="left", fill="y", padx=8, pady=8)
 
-    # --- Top: Online Users ---
-    top_frame = ctk.CTkFrame(left_frame, fg_color="#1a1a1a")
-    top_frame.pack(side="top", fill="both", expand=True, padx=2, pady=2)
+    # --- Online Users ---
+    top_frame = ctk.CTkFrame(left_frame, fg_color="#121212", corner_radius=10)
+    top_frame.pack(side="top", fill="both", expand=True, padx=4, pady=4)
 
-    ctk.CTkLabel(top_frame, text="Online Users", font=font_mono).pack(pady=5)
-    users_listbox = tk.Listbox(top_frame, bg="#0d0d0d", fg="#0f0", font=font_mono)
-    users_listbox.pack(fill="both", expand=True, padx=5, pady=5)
+    ctk.CTkLabel(top_frame, text="🟢 Online Users", font=("Consolas", 13, "bold"), text_color="#05ff1c").pack(pady=5)
+    users_listbox = tk.Listbox(top_frame, 
+                               bg="#050505", fg="#05ff1c",
+                               font=("Consolas", 12), 
+                               selectbackground="#1f1f1f", selectforeground="#00ff99",
+                               highlightthickness=0, bd=0)
+    users_listbox.pack(fill="both", expand=True, padx=6, pady=6)
 
-    # --- Bottom: Rooms ---
-    bottom_frame = ctk.CTkFrame(left_frame, fg_color="#1a1a1a")
-    bottom_frame.pack(side="bottom", fill="both", expand=True, padx=2, pady=2)
+    # --- Available Rooms ---
+    bottom_frame = ctk.CTkFrame(left_frame, fg_color="#121212", corner_radius=10)
+    bottom_frame.pack(side="bottom", fill="both", expand=True, padx=4, pady=4)
 
-    ctk.CTkLabel(bottom_frame, text="Available Rooms", font=font_mono).pack(pady=5)
-    rooms_listbox = tk.Listbox(bottom_frame, bg="#0d0d0d", fg="#0f0", font=font_mono)
-    rooms_listbox.pack(fill="both", expand=True, padx=5, pady=5)
+    ctk.CTkLabel(bottom_frame, text="💀 Rooms", font=("Consolas", 13, "bold"), text_color="#ff00aa").pack(pady=5)
+    rooms_listbox = tk.Listbox(bottom_frame, 
+                               bg="#050505", fg="#ff00aa",
+                               font=("Consolas", 12), 
+                               selectbackground="#1f1f1f", selectforeground="#ff66cc",
+                               highlightthickness=0, bd=0)
+    rooms_listbox.pack(fill="both", expand=True, padx=6, pady=6)
     rooms_listbox.bind("<Double-1>", on_room_double_click)
 
-    join_button = ctk.CTkButton(bottom_frame, text="Join Room", command=join_room, font=font_mono)
+    join_button = ctk.CTkButton(bottom_frame, text="Join Room", command=join_room,
+                                fg_color="#333333", hover_color="#00ff99", text_color="#05ff1c",
+                                corner_radius=10)
     join_button.pack(pady=5)
     join_button.configure(state=ctk.DISABLED)
 
-    # Right frame
-    right_frame = ctk.CTkFrame(root, fg_color="#1a1a1a")
-    right_frame.pack(side="right", fill="both", expand=True, padx=5, pady=5)
+    delete_button = ctk.CTkButton(bottom_frame, text="Delete Room", command=delete_room,
+                                  fg_color="#331122", hover_color="#ff2255", text_color="#ff4477",
+                                  corner_radius=10)
+    delete_button.pack(pady=5)
 
-    # Create Room Frame
-    room_frame = ctk.CTkFrame(right_frame, fg_color="#1a1a1a")
+    # ----- RIGHT PANEL -----
+    right_frame = ctk.CTkFrame(root, fg_color="#0b0b0b")
+    right_frame.pack(side="right", fill="both", expand=True, padx=8, pady=8)
+
+    # --- Room Creation ---
+    room_frame = ctk.CTkFrame(right_frame, fg_color="#121212", corner_radius=10)
     room_frame.pack(pady=10, fill="x")
 
-    ctk.CTkLabel(room_frame, text="Room:", font=font_mono).grid(row=0, column=0, padx=5, pady=5)
-    room_entry = ctk.CTkEntry(room_frame, width=150, font=font_mono)
+    ctk.CTkLabel(room_frame, text="Room:", font=("Consolas", 12), text_color="#05ff1c").grid(row=0, column=0, padx=5, pady=5)
+    room_entry = ctk.CTkEntry(room_frame, width=160, font=("Consolas", 12), fg_color="#1a1a1a", text_color="#05ff1c")
     room_entry.grid(row=0, column=1, padx=5, pady=5)
 
-    ctk.CTkLabel(room_frame, text="Room Code:", font=font_mono).grid(row=1, column=0, padx=5, pady=5)
-    code_entry = ctk.CTkEntry(room_frame, width=150, show="*", font=font_mono)
+    ctk.CTkLabel(room_frame, text="Room Code:", font=("Consolas", 12), text_color="#ff00aa").grid(row=1, column=0, padx=5, pady=5)
+    code_entry = ctk.CTkEntry(room_frame, width=160, show="*", font=("Consolas", 12),
+                              fg_color="#1a1a1a", text_color="#ff00aa")
     code_entry.grid(row=1, column=1, padx=5, pady=5)
 
-    ctk.CTkButton(room_frame, text="☠ Create Room", command=create_room, font=font_mono).grid(row=2, column=0, padx=5, pady=10)
+    ctk.CTkButton(room_frame, text="☠ Create Room", command=create_room, 
+                  fg_color="#222244", hover_color="#4444ff", text_color="#aaaaff",
+                  font=("Consolas", 12, "bold"), corner_radius=10).grid(row=2, column=0, padx=5, pady=10)
 
-    # Chat window
-    chat_window = scrolledtext.ScrolledText(right_frame, wrap="word", height=15, width=70,
-                                           bg="#0d0d0d", fg="#00FF00", insertbackground="#00FF00", font=font_mono)
-    chat_window.pack(padx=10, pady=10, fill="both", expand=True)
+    # --- Chat Window ---
+    chat_window = scrolledtext.ScrolledText(right_frame, wrap="word", height=18, width=75,
+                                           bg="#050505", fg="#05ff1c",
+                                           insertbackground="#00ff99",
+                                           font=("Consolas", 12), borderwidth=0)
+    chat_window.pack(padx=12, pady=12, fill="both", expand=True)
     chat_window.insert(tk.END, f"💀 Connected as {username} to {server_url}\n")
 
-    # Message input
-    message_entry = ctk.CTkEntry(right_frame, placeholder_text="> Type your message...", font=font_mono)
-    message_entry.pack(padx=10, pady=10, fill="x")
+    # --- Message Input ---
+    message_entry = ctk.CTkEntry(right_frame, placeholder_text="> Type your message...",
+                                 font=("Consolas", 12), fg_color="#1a1a1a", text_color="#05ff1c")
+    message_entry.pack(padx=12, pady=8, fill="x")
     message_entry.bind('<Return>', send_message)
 
-    send_button = ctk.CTkButton(right_frame, text="➤ Send", command=send_message, state=ctk.DISABLED, font=font_mono)
-    send_button.pack(padx=10, pady=10)
+    send_button = ctk.CTkButton(right_frame, text="➤ Send", command=send_message,
+                                state=ctk.DISABLED, fg_color="#333333", hover_color="#00ff99",
+                                text_color="#05ff1c", corner_radius=10)
+    send_button.pack(padx=12, pady=8)
 
 root.mainloop()
