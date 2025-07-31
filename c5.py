@@ -63,6 +63,116 @@ def on_update_users(data):
         for u in users:
             users_listbox.insert(tk.END, u)
 
+# ----------------- FUNCTION -----------------
+def ask_admin_code():
+    popup = ctk.CTkToplevel()
+    popup.title("☠ Admin Verification ☠")
+    popup.geometry("350x180")
+    popup.configure(fg_color="#121212")
+    popup.grab_set()  # focus ที่ popup
+
+    # หัวข้อ
+    ctk.CTkLabel(popup, text="Enter Admin Code", 
+                 font=("Consolas", 14, "bold"), text_color="#05ff1c").pack(pady=(20, 10))
+
+    # ช่องใส่รหัส
+    code_entry = ctk.CTkEntry(popup, width=200, fg_color="#1a1a1a", 
+                              text_color="#ff7f00", show="*", font=("Consolas", 12))
+    code_entry.pack(pady=5)
+    code_entry.focus_set()
+
+    # เก็บผลลัพธ์
+    admin_code_result = {"value": None}
+
+    # ปุ่มกด
+    def confirm():
+        admin_code_result["value"] = code_entry.get().strip()
+        popup.destroy()
+
+    def cancel():
+        admin_code_result["value"] = None
+        popup.destroy()
+
+    button_frame = ctk.CTkFrame(popup, fg_color="#121212")
+    button_frame.pack(pady=15)
+
+    ctk.CTkButton(button_frame, text="OK", command=confirm,
+                  fg_color="#222244", hover_color="#4444ff",
+                  text_color="#aaaaff", width=80).pack(side="left", padx=5)
+
+    ctk.CTkButton(button_frame, text="Cancel", command=cancel,
+                  fg_color="#331122", hover_color="#ff2255",
+                  text_color="#ff4477", width=80).pack(side="left", padx=5)
+
+    popup.wait_window()
+    return admin_code_result["value"]
+
+
+
+def ask_room_code(room_name: str):
+    """
+    Popup สำหรับใส่รหัสเข้าห้อง (DarkWeb Retro)
+    return: str | None (None ถ้ากดยกเลิก)
+    """
+    popup = ctk.CTkToplevel()
+    popup.title("☠ Room Code ☠")
+    popup.geometry("350x180")
+    popup.configure(fg_color="#121212")
+    popup.grab_set()  # focus popup
+
+    # หัวข้อ
+    ctk.CTkLabel(
+        popup,
+        text=f"Enter code for room '{room_name}'",
+        font=("Consolas", 14, "bold"),
+        text_color="#ff00aa"
+    ).pack(pady=(20, 10))
+
+    # ช่องใส่รหัส
+    code_entry = ctk.CTkEntry(
+        popup,
+        width=200,
+        fg_color="#1a1a1a",
+        text_color="#ff00aa",
+        show="*",
+        font=("Consolas", 12)
+    )
+    code_entry.pack(pady=5)
+    code_entry.focus_set()
+
+    # เก็บผลลัพธ์
+    code_result = {"value": None}
+
+    # ปุ่มกด
+    def confirm(event=None):
+        code_result["value"] = code_entry.get().strip()
+        popup.destroy()
+
+    def cancel():
+        code_result["value"] = None
+        popup.destroy()
+
+    # ปุ่ม OK / Cancel
+    button_frame = ctk.CTkFrame(popup, fg_color="#121212")
+    button_frame.pack(pady=15)
+
+    ctk.CTkButton(
+        button_frame, text="OK", command=confirm,
+        fg_color="#222244", hover_color="#4444ff",
+        text_color="#aaaaff", width=80
+    ).pack(side="left", padx=5)
+
+    ctk.CTkButton(
+        button_frame, text="Cancel", command=cancel,
+        fg_color="#331122", hover_color="#ff2255",
+        text_color="#ff4477", width=80
+    ).pack(side="left", padx=5)
+
+    # ✅ Bind Enter key ให้กดแล้วเท่ากับกด OK
+    popup.bind("<Return>", confirm)
+
+    popup.wait_window()
+    return code_result["value"]
 
 # ----------------- FUNCTION -----------------
 def create_room():
@@ -82,10 +192,11 @@ def create_room():
         return
 
     # Popup ขอรหัส admin
-    admin_code = simpledialog.askstring("Admin Code", "Enter admin code to create room:", show="*")
+    admin_code = ask_admin_code()
     if not admin_code:
         chat_window.insert(tk.END, "⚠️ Room creation canceled. Admin code required.\n")
         return
+
 
     # ส่งข้อมูลไป server
     sio.emit('create_or_join', {
@@ -106,7 +217,7 @@ def join_room(room_name=None):
         else:
             chat_window.insert(tk.END, "⚠️ Select a room to join.\n")
             return
-    code = simpledialog.askstring("Room Code", f"Enter code for room '{room_name}':", show="*")
+    code = ask_room_code(room_name)
     if username and room_name and code:
         sio.emit('create_or_join', {
             'username': username,
@@ -145,16 +256,16 @@ def delete_room():
     room = rooms_listbox.get(selection[0])
 
     # Popup ขอรหัส admin
-    admin_code = simpledialog.askstring("Admin Code", f"Enter admin code to delete '{room}':", show="*")
+    admin_code = ask_admin_code()
     if not admin_code:
-        chat_window.insert(tk.END, "⚠️ Delete canceled. Admin code required.\n")
+        chat_window.insert(tk.END, "⚠️ Room deletion canceled. Admin code required.\n")
         return
-
+    # ส่งคำสั่งลบห้องไปยัง server
     sio.emit('delete_room', {
         'room': room,
         'admin_code': admin_code
     })
-
+    
 
 # Event รับแจ้งว่าห้องถูกลบ
 @sio.on('room_deleted')
@@ -162,27 +273,42 @@ def on_room_deleted(data):
     chat_window.insert(tk.END, f"⚠️ {data['message']}\n")
 
 # ----------------- GUI -----------------
-ctk.set_appearance_mode("Dark")
-ctk.set_default_color_theme("dark-blue")
+ctk.set_appearance_mode("Dark")  # โหมดมืด
+ctk.set_default_color_theme("dark-blue")  # สีธีมมืด
 
 root = ctk.CTk()
 root.withdraw()  # ซ่อนหน้าหลักก่อน
 font_mono = ("Consolas", 12)
 
-# ----- LOGIN WINDOW -----
+# ----- LOGIN WINDOW ----- 
 login_window = ctk.CTkToplevel()
-login_window.title("Login to Server")
-login_window.geometry("400x200")
+login_window.title("☠ THE RIVER - CHAT ☠")
+login_window.geometry("300x350")
 login_window.grab_set()
 
-ctk.CTkLabel(login_window, text="Server URL:", font=font_mono).pack(pady=5)
-server_entry = ctk.CTkEntry(login_window, width=300, font=font_mono, placeholder_text="http://127.0.0.1:5000")
-server_entry.pack(pady=5)
+# เพิ่มกรอบด้านใน
+login_frame = ctk.CTkFrame(login_window, fg_color="#121212", corner_radius=10)
+login_frame.pack(padx=20, pady=30, fill="both", expand=True)
 
-ctk.CTkLabel(login_window, text="Username:", font=font_mono).pack(pady=5)
-username_entry = ctk.CTkEntry(login_window, width=200, font=font_mono)
+# หัวข้อสไตล์ Retro Hacker
+ctk.CTkLabel(login_frame, text="💀 THE CIRCLE 💀", 
+             font=("Consolas", 18, "bold"), text_color="#05ff1c").pack(pady=15)
+
+# Username
+ctk.CTkLabel(login_frame, text="Username:", font=("Consolas", 12), 
+             text_color="#05ff1c").pack(pady=(10, 0))
+username_entry = ctk.CTkEntry(login_frame, width=220, fg_color="#1a1a1a", 
+                              text_color="#05ff1c", font=("Consolas", 12))
 username_entry.pack(pady=5)
 
+# Server URL
+ctk.CTkLabel(login_frame, text="Server URL:", font=("Consolas", 12), 
+             text_color="#ff7f00").pack(pady=(10, 0))
+server_entry = ctk.CTkEntry(login_frame, width=220, fg_color="#1a1a1a", 
+                            text_color="#ff7f00", font=("Consolas", 12))
+server_entry.pack(pady=5)
+
+# ปุ่ม Connect สไตล์ Hacker
 def connect_and_open_main():
     global server_url, username
     server_url = server_entry.get().strip()
@@ -198,7 +324,22 @@ def connect_and_open_main():
     except Exception as e:
         messagebox.showerror("Connection Error", str(e))
 
-ctk.CTkButton(login_window, text="Connect", command=connect_and_open_main).pack(pady=10)
+ctk.CTkButton(login_frame, text="☠ Connect", command=connect_and_open_main,
+              fg_color="#222244", hover_color="#4444ff",
+              text_color="#aaaaff", font=("Consolas", 12, "bold"), 
+              corner_radius=10, width=200).pack(pady=20)
+
+# เอฟเฟกต์ไฟกระพริบ (Retro)
+def blink_title():
+    current = login_window.title()
+    if "☠" in current:
+        login_window.title("the river<3>")
+    else:
+        login_window.title("☠ Login ☠")
+    login_window.after(800, blink_title)
+
+blink_title()
+
 
 # ----- MAIN CHAT WINDOW -----
 def show_main_window():
@@ -206,7 +347,7 @@ def show_main_window():
     global rooms_listbox, users_listbox, join_button, right_frame
 
     root.deiconify()
-    root.title("☠ The River - DarkNet Chat ☠")
+    root.title("☠ the river<3>")
     root.geometry("1000x650")
     root.configure(bg="#0b0b0b")  # ฉากหลังมืด
 
@@ -282,19 +423,25 @@ def show_main_window():
 
     # --- GIF ด้านขวา ---
     from PIL import Image, ImageTk, ImageSequence
+
     gif_path = "your_animation.gif"  # เปลี่ยนเป็นชื่อไฟล์จริง
     gif_img = Image.open(gif_path)
 
-    frames = [ImageTk.PhotoImage(frame.copy().convert("RGBA"))
-            for frame in ImageSequence.Iterator(gif_img)]
+    # ขนาดใหม่ของ gif
+    new_size = (550, 200)  # ปรับตามต้องการ เช่น (กว้าง, สูง)
+
+    frames = [
+        ImageTk.PhotoImage(frame.copy().convert("RGBA").resize(new_size, Image.LANCZOS))
+        for frame in ImageSequence.Iterator(gif_img)
+    ]
 
     gif_label = tk.Label(room_inner_frame, bg="#121212")
     gif_label.pack(side="right", padx=10, pady=5)
 
     def update_gif(frame_index=0):
-        frame = frames[frame_index]
-        gif_label.configure(image=frame)
-        gif_label.image = frame
+        frame = frames[frame_index]  # เลือกเฟรมปัจจุบัน
+        gif_label.configure(image=frame)  # อัปเดตภาพใน Label
+        gif_label.image = frame          # เก็บอ้างอิงเพื่อไม่ให้ถูกเก็บขยะ
         root.after(100, update_gif, (frame_index + 1) % len(frames))
 
     update_gif()
